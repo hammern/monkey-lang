@@ -127,10 +127,19 @@ impl<'a> Lexer<'a> {
 mod tests {
     use super::*;
 
+    fn test_lexer(input: &str, tests: Vec<Token>) {
+        let mut lexer = Lexer::new(input);
+
+        for expected_token in tests {
+            let token = lexer.next_token();
+
+            assert_eq!(expected_token, token);
+        }
+    }
+
     #[test]
     fn test_next_token_first() {
         let input = "=+(){},;";
-        let mut lexer = Lexer::new(input);
 
         let tests = vec![
             Token::Assign,
@@ -144,11 +153,7 @@ mod tests {
             Token::Eof,
         ];
 
-        for expected_token in tests {
-            let token = lexer.next_token();
-
-            assert_eq!(expected_token, token);
-        }
+        test_lexer(input, tests);
     }
 
     #[test]
@@ -163,7 +168,6 @@ mod tests {
 
             let result = add(five, ten);
         ";
-        let mut lexer = Lexer::new(input);
 
         let tests = vec![
             Token::Let,
@@ -205,11 +209,7 @@ mod tests {
             Token::Eof,
         ];
 
-        for expected_token in tests {
-            let token = lexer.next_token();
-
-            assert_eq!(expected_token, token);
-        }
+        test_lexer(input, tests);
     }
 
     #[test]
@@ -227,7 +227,6 @@ mod tests {
             10 == 10;
             10 != 9;
         ";
-        let mut lexer = Lexer::new(input);
 
         let tests = vec![
             Token::Bang,
@@ -269,10 +268,6 @@ mod tests {
             Token::Semicolon,
         ];
 
-        for expected_token in tests {
-            let token = lexer.next_token();
-
-            assert_eq!(expected_token, token);
-        }
+        test_lexer(input, tests);
     }
 }
