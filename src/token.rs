@@ -1,3 +1,4 @@
+#[derive(Debug, PartialEq)]
 pub enum Token {
     Illegal,
     Eof,
@@ -24,3 +25,10 @@ pub enum Token {
     Let,
 }
 
+pub fn lookup_identifier(ident: &str) -> Token {
+    match ident {
+        "fn" => Token::Function,
+        "let" => Token::Let,
+        _ => Token::Ident(ident.to_string()),
+    }
+}
