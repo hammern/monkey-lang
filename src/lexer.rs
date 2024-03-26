@@ -24,14 +24,17 @@ impl<'a> Lexer<'a> {
     }
 
     fn read_char(&mut self) {
-        if self.read_position >= self.input.len() {
-            self.ch = 0;
-        } else {
-            self.ch = self.input.as_bytes()[self.read_position];
-        }
-
+        self.ch = self.peek_char();
         self.position = self.read_position;
         self.read_position += 1;
+    }
+
+    fn peek_char(&self) -> u8 {
+        if self.read_position >= self.input.len() {
+            0
+        } else {
+            self.input.as_bytes()[self.read_position]
+        }
     }
 
     fn next_token(&mut self) -> Token {
@@ -40,8 +43,26 @@ impl<'a> Lexer<'a> {
         let mut read_next_char = true;
 
         let token = match self.ch {
-            b'=' => Token::Assign,
+            b'=' => match self.peek_char() {
+                b'=' => {
+                    self.read_char();
+                    Token::Equal
+                }
+                _ => Token::Assign,
+            },
+            b'!' => match self.peek_char() {
+                b'=' => {
+                    self.read_char();
+                    Token::NotEqual
+                }
+                _ => Token::Bang,
+            },
             b'+' => Token::Plus,
+            b'-' => Token::Minus,
+            b'/' => Token::Slash,
+            b'*' => Token::Asterisk,
+            b'<' => Token::LesserThan,
+            b'>' => Token::GreaterThan,
             b'(' => Token::LParen,
             b')' => Token::RParen,
             b'{' => Token::LBrace,
@@ -182,6 +203,70 @@ mod tests {
             Token::RParen,
             Token::Semicolon,
             Token::Eof,
+        ];
+
+        for expected_token in tests {
+            let token = lexer.next_token();
+
+            assert_eq!(expected_token, token);
+        }
+    }
+
+    #[test]
+    fn test_next_token_third() {
+        let input = "
+            !-/*5;
+            5 < 10 > 5;
+
+            if (5 < 10) {
+                return true;
+            } else {
+                return false;
+            }
+
+            10 == 10;
+            10 != 9;
+        ";
+        let mut lexer = Lexer::new(input);
+
+        let tests = vec![
+            Token::Bang,
+            Token::Minus,
+            Token::Slash,
+            Token::Asterisk,
+            Token::Int(5),
+            Token::Semicolon,
+            Token::Int(5),
+            Token::LesserThan,
+            Token::Int(10),
+            Token::GreaterThan,
+            Token::Int(5),
+            Token::Semicolon,
+            Token::If,
+            Token::LParen,
+            Token::Int(5),
+            Token::LesserThan,
+            Token::Int(10),
+            Token::RParen,
+            Token::LBrace,
+            Token::Return,
+            Token::True,
+            Token::Semicolon,
+            Token::RBrace,
+            Token::Else,
+            Token::LBrace,
+            Token::Return,
+            Token::False,
+            Token::Semicolon,
+            Token::RBrace,
+            Token::Int(10),
+            Token::Equal,
+            Token::Int(10),
+            Token::Semicolon,
+            Token::Int(10),
+            Token::NotEqual,
+            Token::Int(9),
+            Token::Semicolon,
         ];
 
         for expected_token in tests {

@@ -10,6 +10,16 @@ pub enum Token {
     // Operators
     Assign,
     Plus,
+    Minus,
+    Bang,
+    Asterisk,
+    Slash,
+
+    // Boolean Expressions
+    LesserThan,
+    GreaterThan,
+    Equal,
+    NotEqual,
 
     // Delimiters
     Comma,
@@ -23,12 +33,22 @@ pub enum Token {
     // Keywords
     Function,
     Let,
+    True,
+    False,
+    If,
+    Else,
+    Return,
 }
 
 pub fn lookup_identifier(ident: &str) -> Token {
     match ident {
         "fn" => Token::Function,
         "let" => Token::Let,
+        "true" => Token::True,
+        "false" => Token::False,
+        "if" => Token::If,
+        "else" => Token::Else,
+        "return" => Token::Return,
         _ => Token::Ident(ident.to_string()),
     }
 }
