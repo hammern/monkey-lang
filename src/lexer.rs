@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::token::{lookup_identifier, Token};
 
 #[derive(Debug)]
@@ -11,7 +10,7 @@ pub struct Lexer<'a> {
 
 impl<'a> Lexer<'a> {
     pub fn new(input: &'a str) -> Self {
-        let mut lexer = Lexer {
+        let mut lexer = Self {
             input,
             position: 0,
             read_position: 0,

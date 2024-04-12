@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     Illegal,
     Eof,
@@ -38,6 +38,12 @@ pub enum Token {
     If,
     Else,
     Return,
+}
+
+impl std::fmt::Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 pub fn lookup_identifier(ident: &str) -> Token {
