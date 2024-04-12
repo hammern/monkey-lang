@@ -61,6 +61,7 @@ impl<'a> Parser<'a> {
     fn parse_statement(&mut self) -> Option<Statement> {
         match self.current_token {
             Token::Let => self.parse_let_statement(),
+            Token::Return => self.parse_return_statement(),
             _ => None,
         }
     }
@@ -86,6 +87,16 @@ impl<'a> Parser<'a> {
         Some(Statement::LetStatement(identifier, Expression::Temp))
     }
 
+    fn parse_return_statement(&mut self) -> Option<Statement> {
+        self.next_token();
+
+        while self.current_token != Token::Semicolon {
+            self.next_token();
+        }
+
+        Some(Statement::ReturnStatement(Expression::Temp))
+    }
+
     fn expect_peek(&mut self, token: Token) -> Option<()> {
         if self.peek_token == token {
             self.next_token();
@@ -101,6 +112,21 @@ impl<'a> Parser<'a> {
 mod tests {
     use super::*;
 
+    fn test_parser(input: &str, tests: Vec<Statement>) {
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let statements = parser.parse_program();
+        check_parser_errors(parser);
+
+        assert_eq!(statements, tests);
+    }
+
+    fn check_parser_errors(parser: Parser) {
+        parser.errors.iter().for_each(|error| println!("{error}"));
+        assert_eq!(parser.errors.len(), 0);
+    }
+
     #[test]
     fn test_let_statements() {
         let input = "
@@ -109,23 +135,29 @@ mod tests {
             let foobar = 838383;
         ";
 
-        let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
-
-        let statements = parser.parse_program();
-        check_parser_errors(parser);
-
         let tests = vec![
             Statement::LetStatement(Identifier(String::from("x")), Expression::Temp),
             Statement::LetStatement(Identifier(String::from("y")), Expression::Temp),
             Statement::LetStatement(Identifier(String::from("foobar")), Expression::Temp),
         ];
 
-        assert_eq!(statements, tests);
+        test_parser(input, tests);
     }
 
-    fn check_parser_errors(parser: Parser) {
-        parser.errors.iter().for_each(|error| println!("{error}"));
-        assert_eq!(parser.errors.len(), 0);
+    #[test]
+    fn test_return_statements() {
+        let input = "
+            return 5;
+            return 10;
+            return 993322;
+        ";
+
+        let tests = vec![
+            Statement::ReturnStatement(Expression::Temp),
+            Statement::ReturnStatement(Expression::Temp),
+            Statement::ReturnStatement(Expression::Temp),
+        ];
+
+        test_parser(input, tests);
     }
 }
