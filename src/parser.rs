@@ -84,7 +84,7 @@ impl<'a> Parser<'a> {
             self.next_token();
         }
 
-        Some(Statement::LetStatement(identifier, Expression::Temp))
+        Some(Statement::Let(identifier, Expression::Temp))
     }
 
     fn parse_return_statement(&mut self) -> Option<Statement> {
@@ -94,7 +94,7 @@ impl<'a> Parser<'a> {
             self.next_token();
         }
 
-        Some(Statement::ReturnStatement(Expression::Temp))
+        Some(Statement::Return(Expression::Temp))
     }
 
     fn expect_peek(&mut self, token: Token) -> Option<()> {
@@ -136,9 +136,9 @@ mod tests {
         ";
 
         let tests = vec![
-            Statement::LetStatement(Identifier(String::from("x")), Expression::Temp),
-            Statement::LetStatement(Identifier(String::from("y")), Expression::Temp),
-            Statement::LetStatement(Identifier(String::from("foobar")), Expression::Temp),
+            Statement::Let(Identifier(String::from("x")), Expression::Temp),
+            Statement::Let(Identifier(String::from("y")), Expression::Temp),
+            Statement::Let(Identifier(String::from("foobar")), Expression::Temp),
         ];
 
         test_parser(input, tests);
@@ -153,9 +153,9 @@ mod tests {
         ";
 
         let tests = vec![
-            Statement::ReturnStatement(Expression::Temp),
-            Statement::ReturnStatement(Expression::Temp),
-            Statement::ReturnStatement(Expression::Temp),
+            Statement::Return(Expression::Temp),
+            Statement::Return(Expression::Temp),
+            Statement::Return(Expression::Temp),
         ];
 
         test_parser(input, tests);
