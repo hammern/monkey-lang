@@ -34,13 +34,9 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_program(&mut self) -> Statements {
-        let mut statements: Statements = vec![];
+        let mut statements = vec![];
 
-        loop {
-            if self.current_token == Token::Eof {
-                break;
-            }
-
+        while self.current_token != Token::Eof {
             let statement = self.parse_statement();
 
             if let Some(statement) = statement {
@@ -65,6 +61,24 @@ impl<'a> Parser<'a> {
             "no prefix parse function found for {}",
             self.current_token
         ));
+    }
+
+    fn parse_block_statement(&mut self) -> Statements {
+        self.next_token();
+
+        let mut statements = vec![];
+
+        while self.current_token != Token::Eof && self.current_token != Token::RBrace {
+            let statement = self.parse_statement();
+
+            if let Some(statement) = statement {
+                statements.push(statement);
+            }
+
+            self.next_token();
+        }
+
+        statements
     }
 
     fn parse_statement(&mut self) -> Option<Statement> {
@@ -135,6 +149,7 @@ impl<'a> Parser<'a> {
             Token::Minus => self.parse_prefix_expression(Prefix::Minus),
             Token::Bang => self.parse_prefix_expression(Prefix::Bang),
             Token::LParen => self.parse_grouped_expression(),
+            Token::If => self.parse_if_expression(),
             _ => {
                 self.no_prefix_parse_error();
                 None
@@ -216,6 +231,33 @@ impl<'a> Parser<'a> {
         self.expect_peek(Token::RParen)?;
 
         expression
+    }
+
+    fn parse_if_expression(&mut self) -> Option<Expression> {
+        self.expect_peek(Token::LParen)?;
+        self.next_token();
+
+        let condition = self.parse_expression(Precedence::Lowest)?;
+
+        self.expect_peek(Token::RParen)?;
+        self.expect_peek(Token::LBrace)?;
+
+        let consequence = self.parse_block_statement();
+        let mut alternative = None;
+
+        if self.peek_token == Token::Else {
+            self.next_token();
+
+            self.expect_peek(Token::LBrace)?;
+
+            alternative = Some(self.parse_block_statement());
+        }
+
+        Some(Expression::If(
+            Box::new(condition),
+            consequence,
+            alternative,
+        ))
     }
 }
 
@@ -404,6 +446,46 @@ mod tests {
                 Box::new(Expression::Literal(Literal::Bool(false))),
             )),
         ];
+
+        test_parser(input, tests);
+    }
+
+    #[test]
+    fn test_if_expression() {
+        let input = "if (x < y) { x }";
+
+        let tests = vec![Statement::Expression(Expression::If(
+            Box::new(Expression::Infix(
+                Infix::LesserThan,
+                Box::new(Expression::Identifier(Identifier(String::from("x")))),
+                Box::new(Expression::Identifier(Identifier(String::from("y")))),
+            )),
+            vec![Statement::Expression(Expression::Identifier(Identifier(
+                String::from("x"),
+            )))],
+            None,
+        ))];
+
+        test_parser(input, tests);
+    }
+
+    #[test]
+    fn test_if_else_expression() {
+        let input = "if (x < y) { x } else { y }";
+
+        let tests = vec![Statement::Expression(Expression::If(
+            Box::new(Expression::Infix(
+                Infix::LesserThan,
+                Box::new(Expression::Identifier(Identifier(String::from("x")))),
+                Box::new(Expression::Identifier(Identifier(String::from("y")))),
+            )),
+            vec![Statement::Expression(Expression::Identifier(Identifier(
+                String::from("x"),
+            )))],
+            Some(vec![Statement::Expression(Expression::Identifier(
+                Identifier(String::from("y")),
+            ))]),
+        ))];
 
         test_parser(input, tests);
     }

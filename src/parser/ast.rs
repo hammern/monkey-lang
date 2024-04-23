@@ -14,6 +14,7 @@ pub enum Expression {
     Literal(Literal),
     Prefix(Prefix, Box<Expression>),
     Infix(Infix, Box<Expression>, Box<Expression>),
+    If(Box<Expression>, Statements, Option<Statements>),
 }
 
 #[derive(Debug, PartialEq)]
