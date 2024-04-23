@@ -150,6 +150,7 @@ impl<'a> Parser<'a> {
             Token::Bang => self.parse_prefix_expression(Prefix::Bang),
             Token::LParen => self.parse_grouped_expression(),
             Token::If => self.parse_if_expression(),
+            Token::Function => self.parse_function_expression(),
             _ => {
                 self.no_prefix_parse_error();
                 None
@@ -258,6 +259,46 @@ impl<'a> Parser<'a> {
             consequence,
             alternative,
         ))
+    }
+
+    fn parse_function_expression(&mut self) -> Option<Expression> {
+        self.expect_peek(Token::LParen)?;
+
+        let parameters = self.parse_function_parameters()?;
+
+        self.expect_peek(Token::LBrace)?;
+
+        let statements = self.parse_block_statement();
+
+        Some(Expression::Function(parameters, statements))
+    }
+
+    fn parse_function_parameters(&mut self) -> Option<Vec<Identifier>> {
+        let mut identifiers = vec![];
+
+        if self.peek_token == Token::RParen {
+            self.next_token();
+            return Some(identifiers);
+        }
+
+        self.next_token();
+
+        if let Token::Ident(ident) = self.current_token.clone() {
+            identifiers.push(Identifier(ident));
+        }
+
+        while self.peek_token == Token::Comma {
+            self.next_token();
+            self.next_token();
+
+            if let Token::Ident(ident) = self.current_token.clone() {
+                identifiers.push(Identifier(ident));
+            }
+        }
+
+        self.expect_peek(Token::RParen)?;
+
+        Some(identifiers)
     }
 }
 
@@ -486,6 +527,49 @@ mod tests {
                 Identifier(String::from("y")),
             ))]),
         ))];
+
+        test_parser(input, tests);
+    }
+
+    #[test]
+    fn test_function_expression() {
+        let input = "fn(x, y) { x + y; }";
+
+        let tests = vec![Statement::Expression(Expression::Function(
+            vec![Identifier(String::from("x")), Identifier(String::from("y"))],
+            vec![Statement::Expression(Expression::Infix(
+                Infix::Plus,
+                Box::new(Expression::Identifier(Identifier(String::from("x")))),
+                Box::new(Expression::Identifier(Identifier(String::from("y")))),
+            ))],
+        ))];
+
+        test_parser(input, tests);
+    }
+
+    #[test]
+    fn test_function_parameters() {
+        let input = "
+            fn() {};
+            fn(x) {};
+            fn(x, y, z) {};
+        ";
+
+        let tests = vec![
+            Statement::Expression(Expression::Function(vec![], vec![])),
+            Statement::Expression(Expression::Function(
+                vec![Identifier(String::from("x"))],
+                vec![],
+            )),
+            Statement::Expression(Expression::Function(
+                vec![
+                    Identifier(String::from("x")),
+                    Identifier(String::from("y")),
+                    Identifier(String::from("z")),
+                ],
+                vec![],
+            )),
+        ];
 
         test_parser(input, tests);
     }
