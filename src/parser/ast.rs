@@ -9,7 +9,6 @@ pub enum Statement {
 
 #[derive(Debug, PartialEq)]
 pub enum Expression {
-    Temp,
     Identifier(Identifier),
     Literal(Literal),
     Prefix(Prefix, Box<Expression>),

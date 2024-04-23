@@ -102,22 +102,27 @@ impl<'a> Parser<'a> {
         }?;
 
         self.expect_peek(Token::Assign)?;
+        self.next_token();
 
-        while self.current_token != Token::Semicolon {
+        let expression = self.parse_expression(Precedence::Lowest)?;
+
+        if self.peek_token == Token::Semicolon {
             self.next_token();
         }
 
-        Some(Statement::Let(identifier, Expression::Temp))
+        Some(Statement::Let(identifier, expression))
     }
 
     fn parse_return_statement(&mut self) -> Option<Statement> {
         self.next_token();
 
-        while self.current_token != Token::Semicolon {
+        let expression = self.parse_expression(Precedence::Lowest)?;
+
+        if self.peek_token == Token::Semicolon {
             self.next_token();
         }
 
-        Some(Statement::Return(Expression::Temp))
+        Some(Statement::Return(expression))
     }
 
     fn expect_peek(&mut self, token: Token) -> Option<()> {
@@ -220,12 +225,10 @@ impl<'a> Parser<'a> {
 
         self.next_token();
 
-        let right_expression = self.parse_expression(precedence)?;
-
         Some(Expression::Infix(
             infix,
             Box::new(left_expression),
-            Box::new(right_expression),
+            Box::new(self.parse_expression(precedence)?),
         ))
     }
 
@@ -273,9 +276,10 @@ impl<'a> Parser<'a> {
 
         self.expect_peek(Token::LBrace)?;
 
-        let statements = self.parse_block_statement();
-
-        Some(Expression::Function(parameters, statements))
+        Some(Expression::Function(
+            parameters,
+            self.parse_block_statement(),
+        ))
     }
 
     fn parse_function_parameters(&mut self) -> Option<Vec<Identifier>> {
@@ -307,9 +311,10 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_call_expression(&mut self, function: Expression) -> Option<Expression> {
-        let arguments = self.parse_call_arguments()?;
-
-        Some(Expression::Call(Box::new(function), arguments))
+        Some(Expression::Call(
+            Box::new(function),
+            self.parse_call_arguments()?,
+        ))
     }
 
     fn parse_call_arguments(&mut self) -> Option<Vec<Expression>> {
@@ -359,14 +364,23 @@ mod tests {
     fn test_let_statements() {
         let input = "
             let x = 5;
-            let y = 10;
-            let foobar = 838383;
+            let y = true;
+            let foobar = y;
         ";
 
         let tests = vec![
-            Statement::Let(Identifier(String::from("x")), Expression::Temp),
-            Statement::Let(Identifier(String::from("y")), Expression::Temp),
-            Statement::Let(Identifier(String::from("foobar")), Expression::Temp),
+            Statement::Let(
+                Identifier(String::from("x")),
+                Expression::Literal(Literal::Int(5)),
+            ),
+            Statement::Let(
+                Identifier(String::from("y")),
+                Expression::Literal(Literal::Bool(true)),
+            ),
+            Statement::Let(
+                Identifier(String::from("foobar")),
+                Expression::Identifier(Identifier(String::from("y"))),
+            ),
         ];
 
         test_parser(input, tests);
@@ -381,9 +395,9 @@ mod tests {
         ";
 
         let tests = vec![
-            Statement::Return(Expression::Temp),
-            Statement::Return(Expression::Temp),
-            Statement::Return(Expression::Temp),
+            Statement::Return(Expression::Literal(Literal::Int(5))),
+            Statement::Return(Expression::Literal(Literal::Int(10))),
+            Statement::Return(Expression::Literal(Literal::Int(993322))),
         ];
 
         test_parser(input, tests);
