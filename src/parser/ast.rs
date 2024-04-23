@@ -22,6 +22,7 @@ pub struct Identifier(pub String);
 #[derive(Debug, PartialEq)]
 pub enum Literal {
     Int(i64),
+    Bool(bool),
 }
 
 #[derive(Debug, PartialEq)]

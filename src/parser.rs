@@ -130,6 +130,8 @@ impl<'a> Parser<'a> {
         let mut left_expression = match self.current_token.clone() {
             Token::Ident(ident) => Some(Expression::Identifier(Identifier(ident))),
             Token::Int(int) => Some(Expression::Literal(Literal::Int(int))),
+            Token::True => Some(Expression::Literal(Literal::Bool(true))),
+            Token::False => Some(Expression::Literal(Literal::Bool(false))),
             Token::Minus => self.parse_prefix_expression(Prefix::Minus),
             Token::Bang => self.parse_prefix_expression(Prefix::Bang),
             _ => {
@@ -272,9 +274,17 @@ mod tests {
 
     #[test]
     fn test_literal_expressions() {
-        let input = "5;";
+        let input = "
+            5;
+            true;
+            false;
+        ";
 
-        let tests = vec![Statement::Expression(Expression::Literal(Literal::Int(5)))];
+        let tests = vec![
+            Statement::Expression(Expression::Literal(Literal::Int(5))),
+            Statement::Expression(Expression::Literal(Literal::Bool(true))),
+            Statement::Expression(Expression::Literal(Literal::Bool(false))),
+        ];
 
         test_parser(input, tests);
     }
@@ -284,6 +294,8 @@ mod tests {
         let input = "
             !5;
             -15;
+            !true;
+            !false;
         ";
 
         let tests = vec![
@@ -295,17 +307,17 @@ mod tests {
                 Prefix::Minus,
                 Box::new(Expression::Literal(Literal::Int(15))),
             )),
+            Statement::Expression(Expression::Prefix(
+                Prefix::Bang,
+                Box::new(Expression::Literal(Literal::Bool(true))),
+            )),
+            Statement::Expression(Expression::Prefix(
+                Prefix::Bang,
+                Box::new(Expression::Literal(Literal::Bool(false))),
+            )),
         ];
 
         test_parser(input, tests);
-    }
-
-    fn create_infix_expression_test(operator: Infix) -> Statement {
-        Statement::Expression(Expression::Infix(
-            operator,
-            Box::new(Expression::Literal(Literal::Int(5))),
-            Box::new(Expression::Literal(Literal::Int(5))),
-        ))
     }
 
     #[test]
@@ -319,21 +331,68 @@ mod tests {
             5 < 5;
             5 == 5;
             5 != 5;
+            true == true;
+            true != false;
+            false == false;
         ";
 
-        let tests = [
-            Infix::Plus,
-            Infix::Minus,
-            Infix::Asterisk,
-            Infix::Slash,
-            Infix::GreaterThan,
-            Infix::LesserThan,
-            Infix::Equal,
-            Infix::NotEqual,
-        ]
-        .iter()
-        .map(|operator| create_infix_expression_test(operator.clone()))
-        .collect();
+        let tests = vec![
+            Statement::Expression(Expression::Infix(
+                Infix::Plus,
+                Box::new(Expression::Literal(Literal::Int(5))),
+                Box::new(Expression::Literal(Literal::Int(5))),
+            )),
+            Statement::Expression(Expression::Infix(
+                Infix::Minus,
+                Box::new(Expression::Literal(Literal::Int(5))),
+                Box::new(Expression::Literal(Literal::Int(5))),
+            )),
+            Statement::Expression(Expression::Infix(
+                Infix::Asterisk,
+                Box::new(Expression::Literal(Literal::Int(5))),
+                Box::new(Expression::Literal(Literal::Int(5))),
+            )),
+            Statement::Expression(Expression::Infix(
+                Infix::Slash,
+                Box::new(Expression::Literal(Literal::Int(5))),
+                Box::new(Expression::Literal(Literal::Int(5))),
+            )),
+            Statement::Expression(Expression::Infix(
+                Infix::GreaterThan,
+                Box::new(Expression::Literal(Literal::Int(5))),
+                Box::new(Expression::Literal(Literal::Int(5))),
+            )),
+            Statement::Expression(Expression::Infix(
+                Infix::LesserThan,
+                Box::new(Expression::Literal(Literal::Int(5))),
+                Box::new(Expression::Literal(Literal::Int(5))),
+            )),
+            Statement::Expression(Expression::Infix(
+                Infix::Equal,
+                Box::new(Expression::Literal(Literal::Int(5))),
+                Box::new(Expression::Literal(Literal::Int(5))),
+            )),
+            Statement::Expression(Expression::Infix(
+                Infix::NotEqual,
+                Box::new(Expression::Literal(Literal::Int(5))),
+                Box::new(Expression::Literal(Literal::Int(5))),
+            )),
+            Statement::Expression(Expression::Infix(
+                Infix::Equal,
+                Box::new(Expression::Literal(Literal::Bool(true))),
+                Box::new(Expression::Literal(Literal::Bool(true))),
+            )),
+            Statement::Expression(Expression::Infix(
+                Infix::NotEqual,
+                Box::new(Expression::Literal(Literal::Bool(true))),
+                Box::new(Expression::Literal(Literal::Bool(false))),
+            )),
+            Statement::Expression(Expression::Infix(
+                Infix::Equal,
+                Box::new(Expression::Literal(Literal::Bool(false))),
+                Box::new(Expression::Literal(Literal::Bool(false))),
+            )),
+        ];
 
         test_parser(input, tests);
     }
@@ -488,6 +547,38 @@ mod tests {
                             Box::new(Expression::Literal(Literal::Int(5))),
                         )),
                     )),
+                )),
+            ),
+            (
+                "true",
+                Statement::Expression(Expression::Literal(Literal::Bool(true))),
+            ),
+            (
+                "false",
+                Statement::Expression(Expression::Literal(Literal::Bool(false))),
+            ),
+            (
+                "3 > 5 == false",
+                Statement::Expression(Expression::Infix(
+                    Infix::Equal,
+                    Box::new(Expression::Infix(
+                        Infix::GreaterThan,
+                        Box::new(Expression::Literal(Literal::Int(3))),
+                        Box::new(Expression::Literal(Literal::Int(5))),
+                    )),
+                    Box::new(Expression::Literal(Literal::Bool(false))),
+                )),
+            ),
+            (
+                "3 < 5 == true",
+                Statement::Expression(Expression::Infix(
+                    Infix::Equal,
+                    Box::new(Expression::Infix(
+                        Infix::LesserThan,
+                        Box::new(Expression::Literal(Literal::Int(3))),
+                        Box::new(Expression::Literal(Literal::Int(5))),
+                    )),
+                    Box::new(Expression::Literal(Literal::Bool(true))),
                 )),
             ),
         ];
