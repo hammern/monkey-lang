@@ -1,4 +1,4 @@
-use monkey_lang::{lexer::Lexer, token::Token};
+use monkey_lang::{lexer::Lexer, parser::Parser};
 use std::io::Write;
 
 fn main() {
@@ -13,15 +13,16 @@ fn main() {
 
         std::io::stdin().read_line(&mut input).unwrap();
 
-        let mut lexer = Lexer::new(&input);
+        let lexer = Lexer::new(&input);
+        let mut parser = Parser::new(lexer);
 
-        loop {
-            let token = lexer.next_token();
-            println!("{:?}", token);
+        let statements = parser.parse_program();
 
-            if token == Token::Eof {
-                break;
-            }
+        if !parser.errors.is_empty() {
+            parser.errors.iter().for_each(|error| println!("{error}"));
+            continue;
         }
+
+        println!("{:?}", statements);
     }
 }

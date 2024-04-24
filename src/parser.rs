@@ -10,7 +10,7 @@ pub struct Parser<'a> {
     lexer: Lexer<'a>,
     current_token: Token,
     peek_token: Token,
-    errors: Vec<String>,
+    pub errors: Vec<String>,
 }
 
 impl<'a> Parser<'a> {
