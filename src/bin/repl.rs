@@ -1,4 +1,4 @@
-use monkey_lang::{lexer::Lexer, parser::Parser};
+use monkey_lang::{evaluator::eval, lexer::Lexer, parser::Parser};
 use std::io::Write;
 
 fn main() {
@@ -23,6 +23,8 @@ fn main() {
             continue;
         }
 
-        println!("{:?}", statements);
+        if let Some(evaluated) = eval(statements) {
+            println!("{:?}", evaluated)
+        }
     }
 }
