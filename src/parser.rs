@@ -4,7 +4,7 @@ use self::ast::{
     Expression, Identifier, Infix, Literal, Precedence, Prefix, Statement, Statements,
 };
 
-mod ast;
+pub mod ast;
 
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
