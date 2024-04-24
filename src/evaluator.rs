@@ -21,7 +21,7 @@ fn eval_expression(expression: Expression) -> Option<Object> {
     match expression {
         Expression::Literal(literal) => match literal {
             Literal::Int(int) => Some(Object::Int(int)),
-            _ => None,
+            Literal::Bool(bool) => Some(Object::Bool(bool)),
         },
         _ => None,
     }
@@ -45,6 +45,13 @@ mod test {
     #[test]
     fn test_eval_integer_expression() {
         let tests = vec![("5", Object::Int(5)), ("10", Object::Int(10))];
+
+        test_eval(tests);
+    }
+
+    #[test]
+    fn test_eval_boolean_expression() {
+        let tests = vec![("true", Object::Bool(true)), ("false", Object::Bool(false))];
 
         test_eval(tests);
     }
