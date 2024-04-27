@@ -24,7 +24,7 @@ fn main() {
         }
 
         if let Some(evaluated) = eval(statements) {
-            println!("{:?}", evaluated)
+            println!("{evaluated:?}")
         }
     }
 }
