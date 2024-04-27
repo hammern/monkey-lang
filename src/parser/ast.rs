@@ -38,7 +38,6 @@ pub enum Infix {
     Plus,
     Minus,
     Asterisk,
-    Bang,
     Slash,
     LesserThan,
     GreaterThan,

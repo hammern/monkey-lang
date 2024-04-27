@@ -4,4 +4,5 @@ pub enum Object {
     Bool(bool),
     Null,
     ReturnValue(Box<Object>),
+    Error(String),
 }

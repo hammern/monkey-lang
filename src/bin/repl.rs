@@ -23,8 +23,7 @@ fn main() {
             continue;
         }
 
-        if let Some(evaluated) = eval(statements) {
-            println!("{evaluated:?}")
-        }
+        let evaluated = eval(statements);
+        println!("{evaluated:?}");
     }
 }

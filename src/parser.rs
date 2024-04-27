@@ -212,7 +212,6 @@ impl<'a> Parser<'a> {
             Token::Plus => Infix::Plus,
             Token::Minus => Infix::Minus,
             Token::Asterisk => Infix::Asterisk,
-            Token::Bang => Infix::Bang,
             Token::Slash => Infix::Slash,
             Token::LesserThan => Infix::LesserThan,
             Token::GreaterThan => Infix::GreaterThan,

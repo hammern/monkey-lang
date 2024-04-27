@@ -4,59 +4,59 @@ use self::object::Object;
 
 mod object;
 
-pub fn eval(statements: Statements) -> Option<Object> {
-    let mut result = None;
+pub fn eval(statements: Statements) -> Object {
+    let mut result = Object::Null;
 
     for statement in statements {
         result = eval_statement(statement);
 
-        if let Some(Object::ReturnValue(result)) = result {
-            return Some(*result);
-        }
+        match result {
+            Object::ReturnValue(result) => return *result,
+            Object::Error(message) => return Object::Error(message),
+            _ => (),
+        };
     }
 
     result
 }
 
-fn eval_block_statement(statements: Statements) -> Option<Object> {
-    let mut result = None;
+fn eval_block_statement(statements: Statements) -> Object {
+    let mut result = Object::Null;
 
     for statement in statements {
         result = eval_statement(statement);
 
-        if let Some(Object::ReturnValue(_)) = result {
-            return result;
-        }
+        match result {
+            Object::ReturnValue(_) => return result,
+            Object::Error(message) => return Object::Error(message),
+            _ => (),
+        };
     }
 
     result
 }
 
-fn eval_statement(statement: Statement) -> Option<Object> {
+fn eval_statement(statement: Statement) -> Object {
     match statement {
-        Statement::Return(expression) => {
-            Some(Object::ReturnValue(Box::new(eval_expression(expression)?)))
-        }
+        Statement::Return(expression) => Object::ReturnValue(Box::new(eval_expression(expression))),
         Statement::Expression(expression) => eval_expression(expression),
-        _ => None,
+        _ => Object::Error(String::from("[TODO] statement not implemented")),
     }
 }
 
-fn eval_expression(expression: Expression) -> Option<Object> {
+fn eval_expression(expression: Expression) -> Object {
     match expression {
-        Expression::Literal(literal) => Some(eval_literal_expression(literal)),
+        Expression::Literal(literal) => eval_literal_expression(literal),
         Expression::Prefix(prefix, right) => {
-            Some(eval_prefix_expression(prefix, eval_expression(*right)?))
+            eval_prefix_expression(prefix, eval_expression(*right))
         }
-        Expression::Infix(infix, left, right) => Some(eval_infix_expression(
-            infix,
-            eval_expression(*left)?,
-            eval_expression(*right)?,
-        )),
+        Expression::Infix(infix, left, right) => {
+            eval_infix_expression(infix, eval_expression(*left), eval_expression(*right))
+        }
         Expression::If(condition, consequence, alternative) => {
             eval_if_expression(*condition, consequence, alternative)
         }
-        _ => None,
+        _ => Object::Error(String::from("[TODO] expression not implemented")),
     }
 }
 
@@ -86,19 +86,19 @@ fn eval_bang_operator_expression(right: Object) -> Object {
 fn eval_minus_prefix_operator_expression(right: Object) -> Object {
     match right {
         Object::Int(int) => Object::Int(-int),
-        _ => Object::Null,
+        _ => Object::Error(format!("unknown operator: -{right:?}")),
     }
 }
 
 fn eval_infix_expression(operator: Infix, left: Object, right: Object) -> Object {
-    match (left, right) {
+    match (left.clone(), right.clone()) {
         (Object::Int(left_int), Object::Int(right_int)) => {
             eval_integer_infix_expression(operator, left_int, right_int)
         }
         (Object::Bool(left_bool), Object::Bool(right_bool)) => {
             eval_boolean_infix_expression(operator, left_bool, right_bool)
         }
-        _ => Object::Null,
+        _ => Object::Error(format!("type mismatch: {left:?} {operator:?} {right:?}",)),
     }
 }
 
@@ -112,7 +112,6 @@ fn eval_integer_infix_expression(operator: Infix, left_int: i64, right_int: i64)
         Infix::GreaterThan => Object::Bool(left_int > right_int),
         Infix::Equal => Object::Bool(left_int == right_int),
         Infix::NotEqual => Object::Bool(left_int != right_int),
-        _ => Object::Null,
     }
 }
 
@@ -120,7 +119,9 @@ fn eval_boolean_infix_expression(operator: Infix, left_bool: bool, right_bool: b
     match operator {
         Infix::Equal => Object::Bool(left_bool == right_bool),
         Infix::NotEqual => Object::Bool(left_bool != right_bool),
-        _ => Object::Null,
+        _ => Object::Error(format!(
+            "unknown operator: Bool({left_bool:?}) {operator:?} Bool({right_bool:?})",
+        )),
     }
 }
 
@@ -128,11 +129,11 @@ fn eval_if_expression(
     condition: Expression,
     consequence: Vec<Statement>,
     alternative: Option<Vec<Statement>>,
-) -> Option<Object> {
-    eval_block_statement(match eval_expression(condition)? {
+) -> Object {
+    eval_block_statement(match eval_expression(condition) {
         Object::Bool(false) | Object::Null => match alternative {
             Some(alternative) => alternative,
-            _ => return Some(Object::Null),
+            _ => return Object::Null,
         },
         _ => consequence,
     })
@@ -149,7 +150,7 @@ mod test {
             let lexer = Lexer::new(input);
             let mut parser = Parser::new(lexer);
 
-            assert_eq!(test, eval(parser.parse_program()).unwrap());
+            assert_eq!(test, eval(parser.parse_program()));
         }
     }
 
@@ -247,6 +248,55 @@ mod test {
                     return 1;
                 }",
                 Object::Int(10),
+            ),
+        ];
+
+        test_eval(tests);
+    }
+
+    #[test]
+    fn test_eval_error_handling() {
+        let tests = vec![
+            (
+                "5 + true;",
+                Object::Error(String::from("type mismatch: Int(5) Plus Bool(true)")),
+            ),
+            (
+                "5 + true; 5;",
+                Object::Error(String::from("type mismatch: Int(5) Plus Bool(true)")),
+            ),
+            (
+                "-true;",
+                Object::Error(String::from("unknown operator: -Bool(true)")),
+            ),
+            (
+                "true + false;",
+                Object::Error(String::from(
+                    "unknown operator: Bool(true) Plus Bool(false)",
+                )),
+            ),
+            (
+                "5; true + false; 5;",
+                Object::Error(String::from(
+                    "unknown operator: Bool(true) Plus Bool(false)",
+                )),
+            ),
+            (
+                "if (10 > 1) { true + false; }",
+                Object::Error(String::from(
+                    "unknown operator: Bool(true) Plus Bool(false)",
+                )),
+            ),
+            (
+                "if (10 > 1) {
+                    if (10 > 1) {
+                        return true + false;
+                    }
+                    return 1;
+                }",
+                Object::Error(String::from(
+                    "unknown operator: Bool(true) Plus Bool(false)",
+                )),
             ),
         ];
 
