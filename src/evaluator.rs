@@ -28,6 +28,9 @@ fn eval_expression(expression: Expression) -> Option<Object> {
             eval_expression(*left)?,
             eval_expression(*right)?,
         )),
+        Expression::If(condition, consequence, alternative) => {
+            eval_if_expression(*condition, consequence, alternative)
+        }
         _ => None,
     }
 }
@@ -94,6 +97,20 @@ fn eval_boolean_infix_expression(operator: Infix, left_bool: bool, right_bool: b
         Infix::NotEqual => Object::Bool(left_bool != right_bool),
         _ => Object::Null,
     }
+}
+
+fn eval_if_expression(
+    condition: Expression,
+    consequence: Vec<Statement>,
+    alternative: Option<Vec<Statement>>,
+) -> Option<Object> {
+    eval(match eval_expression(condition)? {
+        Object::Bool(false) | Object::Null => match alternative {
+            Some(alternative) => alternative,
+            _ => return Some(Object::Null),
+        },
+        _ => consequence,
+    })
 }
 
 #[cfg(test)]
@@ -170,6 +187,21 @@ mod test {
             ("!!true", Object::Bool(true)),
             ("!!false", Object::Bool(false)),
             ("!!5", Object::Bool(true)),
+        ];
+
+        test_eval(tests);
+    }
+
+    #[test]
+    fn test_eval_if_else_expressions() {
+        let tests = vec![
+            ("if (true) { 10 }", Object::Int(10)),
+            ("if (false) { 10 }", Object::Null),
+            ("if (1) { 10 }", Object::Int(10)),
+            ("if (1 < 2) { 10 }", Object::Int(10)),
+            ("if (1 > 2) { 10 }", Object::Null),
+            ("if (1 > 2) { 10 } else { 20 }", Object::Int(20)),
+            ("if (1 < 2) { 10 } else { 20 }", Object::Int(10)),
         ];
 
         test_eval(tests);
