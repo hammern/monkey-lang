@@ -8,13 +8,38 @@ pub fn eval(statements: Statements) -> Option<Object> {
     let mut result = None;
 
     for statement in statements {
-        result = match statement {
-            Statement::Expression(expression) => eval_expression(expression),
-            _ => None,
-        };
+        result = eval_statement(statement);
+
+        if let Some(Object::ReturnValue(result)) = result {
+            return Some(*result);
+        }
     }
 
     result
+}
+
+fn eval_block_statement(statements: Statements) -> Option<Object> {
+    let mut result = None;
+
+    for statement in statements {
+        result = eval_statement(statement);
+
+        if let Some(Object::ReturnValue(_)) = result {
+            return result;
+        }
+    }
+
+    result
+}
+
+fn eval_statement(statement: Statement) -> Option<Object> {
+    match statement {
+        Statement::Return(expression) => {
+            Some(Object::ReturnValue(Box::new(eval_expression(expression)?)))
+        }
+        Statement::Expression(expression) => eval_expression(expression),
+        _ => None,
+    }
 }
 
 fn eval_expression(expression: Expression) -> Option<Object> {
@@ -104,7 +129,7 @@ fn eval_if_expression(
     consequence: Vec<Statement>,
     alternative: Option<Vec<Statement>>,
 ) -> Option<Object> {
-    eval(match eval_expression(condition)? {
+    eval_block_statement(match eval_expression(condition)? {
         Object::Bool(false) | Object::Null => match alternative {
             Some(alternative) => alternative,
             _ => return Some(Object::Null),
@@ -202,6 +227,27 @@ mod test {
             ("if (1 > 2) { 10 }", Object::Null),
             ("if (1 > 2) { 10 } else { 20 }", Object::Int(20)),
             ("if (1 < 2) { 10 } else { 20 }", Object::Int(10)),
+        ];
+
+        test_eval(tests);
+    }
+
+    #[test]
+    fn test_eval_return_statements() {
+        let tests = vec![
+            ("return 10;", Object::Int(10)),
+            ("return 10; 9;", Object::Int(10)),
+            ("return 2 * 5; 9;", Object::Int(10)),
+            ("9; return 2 * 5; 9;", Object::Int(10)),
+            (
+                "if (10 > 1) {
+                    if (10 > 1) {
+                        return 10;
+                    }
+                    return 1;
+                }",
+                Object::Int(10),
+            ),
         ];
 
         test_eval(tests);
