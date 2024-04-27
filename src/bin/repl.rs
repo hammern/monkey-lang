@@ -1,9 +1,15 @@
-use monkey_lang::{evaluator::eval, lexer::Lexer, parser::Parser};
+use monkey_lang::{
+    evaluator::{enviroment::Enviroment, Evaluator},
+    lexer::Lexer,
+    parser::Parser,
+};
 use std::io::Write;
 
 fn main() {
     println!("Hello! This is the Monkey programming language REPL!");
     println!("Feel free to type in commands");
+
+    let mut evaluator = Evaluator::new(Enviroment::default());
 
     loop {
         let mut input = String::new();
@@ -23,7 +29,7 @@ fn main() {
             continue;
         }
 
-        let evaluated = eval(statements);
+        let evaluated = evaluator.eval(statements);
         println!("{evaluated:?}");
     }
 }
