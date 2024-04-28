@@ -1,17 +1,24 @@
+use std::{cell::RefCell, rc::Rc};
+
 use crate::parser::ast::{Expression, Identifier, Infix, Literal, Prefix, Statement, Statements};
 
-use self::{enviroment::Enviroment, object::Object};
+use self::{
+    enviroment::{Enviroment, EnviromentType},
+    object::Object,
+};
 
 pub mod enviroment;
 mod object;
 
 pub struct Evaluator {
-    enviroment: Enviroment,
+    enviroment: EnviromentType,
 }
 
 impl Evaluator {
     pub fn new(enviroment: Enviroment) -> Self {
-        Self { enviroment }
+        Self {
+            enviroment: Rc::new(RefCell::new(enviroment)),
+        }
     }
 
     pub fn eval(&mut self, statements: Statements) -> Object {
@@ -60,9 +67,11 @@ impl Evaluator {
 
     fn eval_let_statement(&mut self, identifier: Identifier, expression: Expression) -> Object {
         let Identifier(name) = identifier;
-        let object = self.eval_expression(expression);
 
-        self.enviroment.set(name, object)
+        match self.eval_expression(expression) {
+            Object::Error(message) => Object::Error(message),
+            object => self.enviroment.borrow_mut().set(name, object),
+        }
     }
 
     fn eval_expression(&mut self, expression: Expression) -> Object {
@@ -86,7 +95,12 @@ impl Evaluator {
                 let Identifier(name) = identifier;
                 self.eval_identifier(name)
             }
-            _ => Object::Error(String::from("[TODO] expression not implemented")),
+            Expression::Function(parameters, body) => {
+                Object::Function(parameters, body, self.enviroment.clone())
+            }
+            Expression::Call(function, arguments) => {
+                self.eval_call_expression(*function, arguments)
+            }
         }
     }
 
@@ -183,10 +197,41 @@ impl Evaluator {
     }
 
     fn eval_identifier(&self, name: String) -> Object {
-        match self.enviroment.get(&name) {
+        match self.enviroment.borrow_mut().get(&name) {
             Some(object) => object,
             None => Object::Error(format!("identifier not found: {name}")),
         }
+    }
+
+    fn eval_call_expression(&mut self, function: Expression, arguments: Vec<Expression>) -> Object {
+        let (parameters, body, function_enviroment) = match self.eval_expression(function) {
+            Object::Function(parameters, body, enviroment) => (parameters, body, enviroment),
+            _ => return Object::Null,
+        };
+
+        let mut evaluated_arguments = vec![];
+
+        for argument in arguments {
+            match self.eval_expression(argument) {
+                Object::Error(message) => return Object::Error(message),
+                object => evaluated_arguments.push(object),
+            }
+        }
+
+        let mut extended_env = Enviroment::new_enclosed_enviroment(function_enviroment);
+
+        for (identifier, object) in parameters.into_iter().zip(evaluated_arguments.into_iter()) {
+            let Identifier(name) = identifier;
+            extended_env.set(name, object);
+        }
+
+        let current_env = self.enviroment.clone();
+
+        self.enviroment = Rc::new(RefCell::new(extended_env));
+        let result = self.eval(body);
+        self.enviroment = current_env;
+
+        result
     }
 }
 
@@ -315,6 +360,78 @@ mod test {
             (
                 "let a = 5; let b = a; let c = a + b + 5; c;",
                 Object::Int(15),
+            ),
+        ];
+
+        test_eval(tests);
+    }
+
+    #[test]
+    fn test_eval_function_object() {
+        let tests = vec![(
+            "fn(x) { x + 2; };",
+            Object::Function(
+                vec![Identifier(String::from("x"))],
+                vec![Statement::Expression(Expression::Infix(
+                    Infix::Plus,
+                    Box::new(Expression::Identifier(Identifier(String::from("x")))),
+                    Box::new(Expression::Literal(Literal::Int(2))),
+                ))],
+                Rc::new(RefCell::new(Enviroment::default())),
+            ),
+        )];
+
+        test_eval(tests);
+    }
+
+    #[test]
+    fn test_eval_function_application() {
+        let tests = vec![
+            ("let identity = fn(x) { x; }; identity(5);", Object::Int(5)),
+            (
+                "let identity = fn(x) { return x; }; identity(5);",
+                Object::Int(5),
+            ),
+            ("let double = fn(x) { x * 2; }; double(5);", Object::Int(10)),
+            ("let add = fn(x, y) { x + y; }; add(5, 5);", Object::Int(10)),
+            (
+                "let add = fn(x, y) { x + y; }; add(5 + 5, add(5, 5));",
+                Object::Int(20),
+            ),
+            ("fn(x) { x; }(5);", Object::Int(5)),
+            (
+                "let newAdder = fn(x) {
+                    fn(y) { x + y };
+                };
+
+                let addTwo = newAdder(2);
+                addTwo(2);",
+                Object::Int(4),
+            ),
+            (
+                "let counter = fn(x) {
+                    if (x > 100) {
+                        return true;
+                    } else {
+                        let foobar = 9999;
+                        counter(x + 1);
+                    }
+                };
+                
+                counter(5);",
+                Object::Bool(true),
+            ),
+            (
+                "let factorial = fn(n) {
+                    if (n == 0) {
+                        return 1;
+                    }
+
+                    return n * factorial(n - 1);
+                };
+
+                factorial(5);",
+                Object::Int(120),
             ),
         ];
 
