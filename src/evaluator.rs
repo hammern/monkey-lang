@@ -79,12 +79,22 @@ impl Evaluator {
             Expression::Literal(literal) => self.eval_literal_expression(literal),
             Expression::Prefix(prefix, right) => {
                 let right_expression = self.eval_expression(*right);
+                if let Object::Error(_) = right_expression {
+                    return right_expression;
+                }
 
                 self.eval_prefix_expression(prefix, right_expression)
             }
             Expression::Infix(infix, left, right) => {
                 let left_expression = self.eval_expression(*left);
+                if let Object::Error(_) = left_expression {
+                    return left_expression;
+                }
+
                 let right_expression = self.eval_expression(*right);
+                if let Object::Error(_) = right_expression {
+                    return right_expression;
+                }
 
                 self.eval_infix_expression(infix, left_expression, right_expression)
             }
@@ -190,6 +200,7 @@ impl Evaluator {
                 Some(alternative) => alternative,
                 _ => return Object::Null,
             },
+            Object::Error(message) => return Object::Error(message),
             _ => consequence,
         };
 
@@ -206,6 +217,7 @@ impl Evaluator {
     fn eval_call_expression(&mut self, function: Expression, arguments: Vec<Expression>) -> Object {
         let (parameters, body, function_enviroment) = match self.eval_expression(function) {
             Object::Function(parameters, body, enviroment) => (parameters, body, enviroment),
+            Object::Error(message) => return Object::Error(message),
             _ => return Object::Null,
         };
 
