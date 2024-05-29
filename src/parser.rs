@@ -149,6 +149,7 @@ impl<'a> Parser<'a> {
         let mut left_expression = match self.current_token.clone() {
             Token::Ident(ident) => Some(Expression::Identifier(Identifier(ident))),
             Token::Int(int) => Some(Expression::Literal(Literal::Int(int))),
+            Token::String(string) => Some(Expression::Literal(Literal::String(string))),
             Token::True => Some(Expression::Literal(Literal::Bool(true))),
             Token::False => Some(Expression::Literal(Literal::Bool(false))),
             Token::Minus => self.parse_prefix_expression(Prefix::Minus),
@@ -419,12 +420,16 @@ mod tests {
             5;
             true;
             false;
+            \"hello world\";
         ";
 
         let tests = vec![
             Statement::Expression(Expression::Literal(Literal::Int(5))),
             Statement::Expression(Expression::Literal(Literal::Bool(true))),
             Statement::Expression(Expression::Literal(Literal::Bool(false))),
+            Statement::Expression(Expression::Literal(Literal::String(String::from(
+                "hello world",
+            )))),
         ];
 
         test_parser(input, tests);

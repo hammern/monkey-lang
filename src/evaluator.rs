@@ -118,6 +118,7 @@ impl Evaluator {
         match literal {
             Literal::Int(int) => Object::Int(int),
             Literal::Bool(bool) => Object::Bool(bool),
+            Literal::String(string) => Object::String(string),
         }
     }
 
@@ -152,6 +153,9 @@ impl Evaluator {
             (Object::Bool(left_bool), Object::Bool(right_bool)) => {
                 self.eval_boolean_infix_expression(operator, left_bool, right_bool)
             }
+            (Object::String(left_string), Object::String(right_string)) => {
+                self.eval_string_infix_expression(operator, left_string, right_string)
+            }
             _ => Object::Error(format!("type mismatch: {left:?} {operator:?} {right:?}",)),
         }
     }
@@ -185,6 +189,20 @@ impl Evaluator {
             Infix::NotEqual => Object::Bool(left_bool != right_bool),
             _ => Object::Error(format!(
                 "unknown operator: Bool({left_bool:?}) {operator:?} Bool({right_bool:?})",
+            )),
+        }
+    }
+
+    fn eval_string_infix_expression(
+        &self,
+        operator: Infix,
+        left_string: String,
+        right_string: String,
+    ) -> Object {
+        match operator {
+            Infix::Plus => Object::String(left_string + &right_string),
+            _ => Object::Error(format!(
+                "unknown operator: String({left_string:?}) {operator:?} String({right_string:?})",
             )),
         }
     }
@@ -309,6 +327,16 @@ mod test {
             ("(1 > 2) == true", Object::Bool(false)),
             ("(1 > 2) == false", Object::Bool(true)),
         ];
+
+        test_eval(tests);
+    }
+
+    #[test]
+    fn test_string_concatenation() {
+        let tests = vec![(
+            "\"Hello\" + \" \" + \"World!\"",
+            Object::String(String::from("Hello World!")),
+        )];
 
         test_eval(tests);
     }
@@ -497,6 +525,12 @@ mod test {
             (
                 "foobar;",
                 Object::Error(String::from("identifier not found: foobar")),
+            ),
+            (
+                "\"Hello\" - \"World!\"",
+                Object::Error(String::from(
+                    "unknown operator: String(\"Hello\") Minus String(\"World!\")",
+                )),
             ),
         ];
 

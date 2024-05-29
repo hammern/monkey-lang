@@ -68,6 +68,7 @@ impl<'a> Lexer<'a> {
             b'}' => Token::RBrace,
             b',' => Token::Comma,
             b';' => Token::Semicolon,
+            b'"' => self.read_string(),
             0 => Token::Eof,
             _ if self.is_letter() => {
                 read_next_char = false;
@@ -119,6 +120,20 @@ impl<'a> Lexer<'a> {
 
     fn is_digit(&self) -> bool {
         self.ch.is_ascii_digit()
+    }
+
+    fn read_string(&mut self) -> Token {
+        let position = self.position + 1;
+
+        loop {
+            self.read_char();
+
+            if self.ch == b'\"' || self.ch == 0 {
+                break;
+            }
+        }
+
+        Token::String(self.input[position..self.position].to_string())
     }
 }
 
@@ -225,6 +240,9 @@ mod tests {
 
             10 == 10;
             10 != 9;
+
+            \"foobar\";
+            \"foo bar\";
         ";
 
         let tests = vec![
@@ -264,6 +282,10 @@ mod tests {
             Token::Int(10),
             Token::NotEqual,
             Token::Int(9),
+            Token::Semicolon,
+            Token::String(String::from("foobar")),
+            Token::Semicolon,
+            Token::String(String::from("foo bar")),
             Token::Semicolon,
         ];
 

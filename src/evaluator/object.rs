@@ -6,6 +6,7 @@ use super::enviroment::EnviromentType;
 pub enum Object {
     Int(i64),
     Bool(bool),
+    String(String),
     Function(Vec<Identifier>, Statements, EnviromentType),
     Null,
     ReturnValue(Box<Object>),
