@@ -3,10 +3,12 @@ use std::{cell::RefCell, rc::Rc};
 use crate::parser::ast::{Expression, Identifier, Infix, Literal, Prefix, Statement, Statements};
 
 use self::{
+    builtins::len,
     enviroment::{Enviroment, EnviromentType},
-    object::Object,
+    object::{BuiltinFunction, Object},
 };
 
+mod builtins;
 pub mod enviroment;
 mod object;
 
@@ -226,17 +228,22 @@ impl Evaluator {
     }
 
     fn eval_identifier(&self, name: String) -> Object {
-        match self.enviroment.borrow_mut().get(&name) {
-            Some(object) => object,
-            None => Object::Error(format!("identifier not found: {name}")),
+        if let Some(object) = self.enviroment.borrow_mut().get(&name) {
+            return object;
+        }
+
+        match name.as_str() {
+            "len" => Object::Builtin(len),
+            _ => Object::Error(format!("identifier not found: {name}")),
         }
     }
 
     fn eval_call_expression(&mut self, function: Expression, arguments: Vec<Expression>) -> Object {
-        let (parameters, body, function_enviroment) = match self.eval_expression(function) {
+        let (parameters, body, function_enviroment) = match self.eval_expression(function.clone()) {
             Object::Function(parameters, body, enviroment) => (parameters, body, enviroment),
+            Object::Builtin(builtin_fn) => return self.eval_builtin_call(builtin_fn, arguments),
             Object::Error(message) => return Object::Error(message),
-            _ => return Object::Null,
+            _ => return Object::Error(format!("not a function: {function:?}")),
         };
 
         let mut evaluated_arguments = vec![];
@@ -262,6 +269,23 @@ impl Evaluator {
         self.enviroment = current_env;
 
         result
+    }
+
+    fn eval_builtin_call(
+        &mut self,
+        builtin_fn: BuiltinFunction,
+        arguments: Vec<Expression>,
+    ) -> Object {
+        let mut evaluated_arguments = vec![];
+
+        for argument in arguments {
+            match self.eval_expression(argument) {
+                Object::Error(message) => return Object::Error(message),
+                object => evaluated_arguments.push(object),
+            }
+        }
+
+        builtin_fn(evaluated_arguments)
     }
 }
 
@@ -472,6 +496,25 @@ mod test {
 
                 factorial(5);",
                 Object::Int(120),
+            ),
+        ];
+
+        test_eval(tests);
+    }
+
+    #[test]
+    fn test_builtin_functions() {
+        let tests = vec![
+            ("len(\"\")", Object::Int(0)),
+            ("len(\"four\")", Object::Int(4)),
+            ("len(\"hello world\")", Object::Int(11)),
+            (
+                "len(1)",
+                Object::Error(String::from("argument to `len` not supported, got Int(1)")),
+            ),
+            (
+                "len(\"one\", \"two\")",
+                Object::Error(String::from("wrong number of arguments. got=2, want=1")),
             ),
         ];
 
