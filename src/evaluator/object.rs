@@ -9,6 +9,7 @@ pub enum Object {
     Int(i64),
     Bool(bool),
     String(String),
+    Array(Vec<Object>),
     Function(Vec<Identifier>, Statements, EnviromentType),
     Null,
     ReturnValue(Box<Object>),

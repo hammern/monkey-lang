@@ -66,6 +66,8 @@ impl<'a> Lexer<'a> {
             b')' => Token::RParen,
             b'{' => Token::LBrace,
             b'}' => Token::RBrace,
+            b'[' => Token::LBracket,
+            b']' => Token::RBracket,
             b',' => Token::Comma,
             b';' => Token::Semicolon,
             b'"' => self.read_string(),
@@ -243,6 +245,8 @@ mod tests {
 
             \"foobar\";
             \"foo bar\";
+
+            [1, 2];
         ";
 
         let tests = vec![
@@ -287,6 +291,13 @@ mod tests {
             Token::Semicolon,
             Token::String(String::from("foo bar")),
             Token::Semicolon,
+            Token::LBracket,
+            Token::Int(1),
+            Token::Comma,
+            Token::Int(2),
+            Token::RBracket,
+            Token::Semicolon,
+            Token::Eof,
         ];
 
         test_lexer(input, tests);

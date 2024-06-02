@@ -1,9 +1,9 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, usize};
 
 use crate::parser::ast::{Expression, Identifier, Infix, Literal, Prefix, Statement, Statements};
 
 use self::{
-    builtins::len,
+    builtins::{first, last, len, push, rest},
     enviroment::{Enviroment, EnviromentType},
     object::{BuiltinFunction, Object},
 };
@@ -113,14 +113,39 @@ impl Evaluator {
             Expression::Call(function, arguments) => {
                 self.eval_call_expression(*function, arguments)
             }
+            Expression::Index(left_expression, index_expression) => {
+                let left = self.eval_expression(*left_expression);
+                if let Object::Error(_) = left {
+                    return left;
+                }
+
+                let index = self.eval_expression(*index_expression);
+                if let Object::Error(_) = index {
+                    return index;
+                }
+
+                self.eval_index_expression(left, index)
+            }
         }
     }
 
-    fn eval_literal_expression(&self, literal: Literal) -> Object {
+    fn eval_literal_expression(&mut self, literal: Literal) -> Object {
         match literal {
             Literal::Int(int) => Object::Int(int),
             Literal::Bool(bool) => Object::Bool(bool),
             Literal::String(string) => Object::String(string),
+            Literal::Array(array) => {
+                let mut elements = vec![];
+
+                for element in array {
+                    match self.eval_expression(element) {
+                        Object::Error(message) => return Object::Error(message),
+                        object => elements.push(object),
+                    }
+                }
+
+                Object::Array(elements)
+            }
         }
     }
 
@@ -234,6 +259,10 @@ impl Evaluator {
 
         match name.as_str() {
             "len" => Object::Builtin(len),
+            "first" => Object::Builtin(first),
+            "last" => Object::Builtin(last),
+            "rest" => Object::Builtin(rest),
+            "push" => Object::Builtin(push),
             _ => Object::Error(format!("identifier not found: {name}")),
         }
     }
@@ -286,6 +315,26 @@ impl Evaluator {
         }
 
         builtin_fn(evaluated_arguments)
+    }
+
+    fn eval_index_expression(&mut self, left: Object, index: Object) -> Object {
+        match (left.clone(), index) {
+            (Object::Array(array), Object::Int(index)) => {
+                self.eval_array_index_expression(array, index)
+            }
+            _ => Object::Error(format!("index operator not supported: {left:?}")),
+        }
+    }
+
+    fn eval_array_index_expression(&mut self, array: Vec<Object>, index: i64) -> Object {
+        if index < 0 || index > array.len().try_into().unwrap() {
+            return Object::Null;
+        }
+
+        match array.get(index as usize) {
+            Some(element) => element.clone(),
+            None => Object::Null,
+        }
     }
 }
 
@@ -351,6 +400,16 @@ mod test {
             ("(1 > 2) == true", Object::Bool(false)),
             ("(1 > 2) == false", Object::Bool(true)),
         ];
+
+        test_eval(tests);
+    }
+
+    #[test]
+    fn test_eval_array_expression() {
+        let tests = vec![(
+            "[1, 2 * 2, 3 + 3]",
+            Object::Array(vec![Object::Int(1), Object::Int(4), Object::Int(6)]),
+        )];
 
         test_eval(tests);
     }
@@ -508,6 +567,7 @@ mod test {
             ("len(\"\")", Object::Int(0)),
             ("len(\"four\")", Object::Int(4)),
             ("len(\"hello world\")", Object::Int(11)),
+            ("len([1, 2, 3])", Object::Int(3)),
             (
                 "len(1)",
                 Object::Error(String::from("argument to `len` not supported, got Int(1)")),
@@ -516,6 +576,70 @@ mod test {
                 "len(\"one\", \"two\")",
                 Object::Error(String::from("wrong number of arguments. got=2, want=1")),
             ),
+            ("first([])", Object::Null),
+            ("first([1, 2, 3])", Object::Int(1)),
+            (
+                "first(1)",
+                Object::Error(String::from(
+                    "argument to `first` not supported, got Int(1)",
+                )),
+            ),
+            (
+                "first([1], [2])",
+                Object::Error(String::from("wrong number of arguments. got=2, want=1")),
+            ),
+            ("last([])", Object::Null),
+            ("last([1, 2, 3])", Object::Int(3)),
+            (
+                "last(1)",
+                Object::Error(String::from("argument to `last` not supported, got Int(1)")),
+            ),
+            (
+                "last([1], [2])",
+                Object::Error(String::from("wrong number of arguments. got=2, want=1")),
+            ),
+            ("rest([])", Object::Null),
+            (
+                "rest([1, 2, 3])",
+                Object::Array(vec![Object::Int(2), Object::Int(3)]),
+            ),
+            (
+                "rest(1)",
+                Object::Error(String::from("argument to `rest` not supported, got Int(1)")),
+            ),
+            (
+                "rest([1], [2])",
+                Object::Error(String::from("wrong number of arguments. got=2, want=1")),
+            ),
+            ("push([], 1)", Object::Array(vec![Object::Int(1)])),
+            (
+                "push(1, [])",
+                Object::Error(String::from("argument to `push` must be ARRAY, got Int(1)")),
+            ),
+        ];
+
+        test_eval(tests);
+    }
+
+    #[test]
+    fn test_eval_array_index_expressions() {
+        let tests = vec![
+            ("[1, 2, 3][0]", Object::Int(1)),
+            ("[1, 2, 3][1]", Object::Int(2)),
+            ("[1, 2, 3][2]", Object::Int(3)),
+            ("let i = 0; [1][i]", Object::Int(1)),
+            ("[1, 2, 3][1 + 1]", Object::Int(3)),
+            ("let myArray = [1, 2, 3]; myArray[2]", Object::Int(3)),
+            (
+                "let myArray = [1, 2, 3]; myArray[0] + myArray[1] + myArray[2]",
+                Object::Int(6),
+            ),
+            (
+                "let myArray = [1, 2, 3]; let i = myArray[0]; myArray[i]",
+                Object::Int(2),
+            ),
+            ("[1, 2, 3][3]", Object::Null),
+            ("[1, 2, 3][-1]", Object::Null),
         ];
 
         test_eval(tests);
@@ -574,6 +698,10 @@ mod test {
                 Object::Error(String::from(
                     "unknown operator: String(\"Hello\") Minus String(\"World!\")",
                 )),
+            ),
+            (
+                "1[2]",
+                Object::Error(String::from("index operator not supported: Int(1)")),
             ),
         ];
 

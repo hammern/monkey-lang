@@ -16,6 +16,7 @@ pub enum Expression {
     If(Box<Expression>, Statements, Option<Statements>),
     Function(Vec<Identifier>, Statements),
     Call(Box<Expression>, Vec<Expression>),
+    Index(Box<Expression>, Box<Expression>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -26,6 +27,7 @@ pub enum Literal {
     Int(i64),
     Bool(bool),
     String(String),
+    Array(Vec<Expression>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -55,4 +57,5 @@ pub enum Precedence {
     Product,     // *
     Prefix,      // -X or !X
     Call,        // myFunction(X)
+    Index,       // array[index]
 }

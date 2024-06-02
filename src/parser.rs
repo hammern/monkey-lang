@@ -152,6 +152,9 @@ impl<'a> Parser<'a> {
             Token::String(string) => Some(Expression::Literal(Literal::String(string))),
             Token::True => Some(Expression::Literal(Literal::Bool(true))),
             Token::False => Some(Expression::Literal(Literal::Bool(false))),
+            Token::LBracket => Some(Expression::Literal(Literal::Array(
+                self.parse_expression_list(Token::RBracket)?,
+            ))),
             Token::Minus => self.parse_prefix_expression(Prefix::Minus),
             Token::Bang => self.parse_prefix_expression(Prefix::Bang),
             Token::LParen => self.parse_grouped_expression(),
@@ -182,6 +185,10 @@ impl<'a> Parser<'a> {
                     self.next_token();
                     self.parse_call_expression(left_expression)?
                 }
+                Token::LBracket => {
+                    self.next_token();
+                    self.parse_index_expression(left_expression)?
+                }
                 _ => return Some(left_expression),
             };
         }
@@ -204,6 +211,7 @@ impl<'a> Parser<'a> {
             Token::Plus | Token::Minus => Precedence::Sum,
             Token::Slash | Token::Asterisk => Precedence::Product,
             Token::LParen => Precedence::Call,
+            Token::LBracket => Precedence::Index,
             _ => Precedence::Lowest,
         }
     }
@@ -313,31 +321,44 @@ impl<'a> Parser<'a> {
     fn parse_call_expression(&mut self, function: Expression) -> Option<Expression> {
         Some(Expression::Call(
             Box::new(function),
-            self.parse_call_arguments()?,
+            self.parse_expression_list(Token::RParen)?,
         ))
     }
 
-    fn parse_call_arguments(&mut self) -> Option<Vec<Expression>> {
-        let mut arguments = vec![];
+    fn parse_expression_list(&mut self, end: Token) -> Option<Vec<Expression>> {
+        let mut list = vec![];
 
-        if self.peek_token == Token::RParen {
+        if self.peek_token == end {
             self.next_token();
-            return Some(arguments);
+            return Some(list);
         }
 
         self.next_token();
-        arguments.push(self.parse_expression(Precedence::Lowest)?);
+        list.push(self.parse_expression(Precedence::Lowest)?);
 
         while self.peek_token == Token::Comma {
             self.next_token();
             self.next_token();
 
-            arguments.push(self.parse_expression(Precedence::Lowest)?);
+            list.push(self.parse_expression(Precedence::Lowest)?);
         }
 
-        self.expect_peek(Token::RParen)?;
+        self.expect_peek(end)?;
 
-        Some(arguments)
+        Some(list)
+    }
+
+    fn parse_index_expression(&mut self, left_expression: Expression) -> Option<Expression> {
+        self.next_token();
+
+        let index = self.parse_expression(Precedence::Lowest)?;
+
+        self.expect_peek(Token::RBracket)?;
+
+        Some(Expression::Index(
+            Box::new(left_expression),
+            Box::new(index),
+        ))
     }
 }
 
@@ -421,6 +442,7 @@ mod tests {
             true;
             false;
             \"hello world\";
+            [1, 2 * 2, 3 + 3];
         ";
 
         let tests = vec![
@@ -430,6 +452,19 @@ mod tests {
             Statement::Expression(Expression::Literal(Literal::String(String::from(
                 "hello world",
             )))),
+            Statement::Expression(Expression::Literal(Literal::Array(vec![
+                Expression::Literal(Literal::Int(1)),
+                Expression::Infix(
+                    Infix::Asterisk,
+                    Box::new(Expression::Literal(Literal::Int(2))),
+                    Box::new(Expression::Literal(Literal::Int(2))),
+                ),
+                Expression::Infix(
+                    Infix::Plus,
+                    Box::new(Expression::Literal(Literal::Int(3))),
+                    Box::new(Expression::Literal(Literal::Int(3))),
+                ),
+            ]))),
         ];
 
         test_parser(input, tests);
@@ -645,6 +680,22 @@ mod tests {
                     Box::new(Expression::Literal(Literal::Int(5))),
                 ),
             ],
+        ))];
+
+        test_parser(input, tests);
+    }
+
+    #[test]
+    fn test_index_expression() {
+        let input = "myArray[1 + 1]";
+
+        let tests = vec![Statement::Expression(Expression::Index(
+            Box::new(Expression::Identifier(Identifier(String::from("myArray")))),
+            Box::new(Expression::Infix(
+                Infix::Plus,
+                Box::new(Expression::Literal(Literal::Int(1))),
+                Box::new(Expression::Literal(Literal::Int(1))),
+            )),
         ))];
 
         test_parser(input, tests);
@@ -972,6 +1023,61 @@ mod tests {
                         )),
                         Box::new(Expression::Identifier(Identifier(String::from("g")))),
                     )],
+                )),
+            ),
+            (
+                "a * [1, 2, 3, 4][b * c] * d",
+                Statement::Expression(Expression::Infix(
+                    Infix::Asterisk,
+                    Box::new(Expression::Infix(
+                        Infix::Asterisk,
+                        Box::new(Expression::Identifier(Identifier(String::from("a")))),
+                        Box::new(Expression::Index(
+                            Box::new(Expression::Literal(Literal::Array(vec![
+                                Expression::Literal(Literal::Int(1)),
+                                Expression::Literal(Literal::Int(2)),
+                                Expression::Literal(Literal::Int(3)),
+                                Expression::Literal(Literal::Int(4)),
+                            ]))),
+                            Box::new(Expression::Infix(
+                                Infix::Asterisk,
+                                Box::new(Expression::Identifier(Identifier(String::from("b")))),
+                                Box::new(Expression::Identifier(Identifier(String::from("c")))),
+                            )),
+                        )),
+                    )),
+                    Box::new(Expression::Identifier(Identifier(String::from("d")))),
+                )),
+            ),
+            (
+                "add(a * b[2], b[1], 2 * [1, 2][1])",
+                Statement::Expression(Expression::Call(
+                    Box::new(Expression::Identifier(Identifier(String::from("add")))),
+                    vec![
+                        Expression::Infix(
+                            Infix::Asterisk,
+                            Box::new(Expression::Identifier(Identifier(String::from("a")))),
+                            Box::new(Expression::Index(
+                                Box::new(Expression::Identifier(Identifier(String::from("b")))),
+                                Box::new(Expression::Literal(Literal::Int(2))),
+                            )),
+                        ),
+                        Expression::Index(
+                            Box::new(Expression::Identifier(Identifier(String::from("b")))),
+                            Box::new(Expression::Literal(Literal::Int(1))),
+                        ),
+                        Expression::Infix(
+                            Infix::Asterisk,
+                            Box::new(Expression::Literal(Literal::Int(2))),
+                            Box::new(Expression::Index(
+                                Box::new(Expression::Literal(Literal::Array(vec![
+                                    Expression::Literal(Literal::Int(1)),
+                                    Expression::Literal(Literal::Int(2)),
+                                ]))),
+                                Box::new(Expression::Literal(Literal::Int(1))),
+                            )),
+                        ),
+                    ],
                 )),
             ),
         ];
