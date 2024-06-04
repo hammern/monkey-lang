@@ -30,6 +30,6 @@ fn main() {
         }
 
         let evaluated = evaluator.eval(statements);
-        println!("{evaluated:?}");
+        println!("{evaluated}");
     }
 }

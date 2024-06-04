@@ -16,3 +16,14 @@ pub enum Object {
     Error(String),
     Builtin(BuiltinFunction),
 }
+
+impl std::fmt::Display for Object {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Object::Function(parameters, body, _) => {
+                write!(f, "Function({parameters:?}, {body:?})")
+            }
+            _ => write!(f, "{self:?}"),
+        }
+    }
+}
