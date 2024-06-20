@@ -3,7 +3,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc, usize};
 use crate::parser::ast::{Expression, Identifier, Infix, Literal, Prefix, Statement, Statements};
 
 use self::{
-    builtins::{first, last, len, push, rest},
+    builtins::{first, last, len, push, puts, rest},
     enviroment::{Enviroment, EnviromentType},
     object::{BuiltinFunction, Object},
 };
@@ -282,6 +282,7 @@ impl Evaluator {
             "last" => Object::Builtin(last),
             "rest" => Object::Builtin(rest),
             "push" => Object::Builtin(push),
+            "puts" => Object::Builtin(puts),
             _ => Object::Error(format!("identifier not found: {name}")),
         }
     }

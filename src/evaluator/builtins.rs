@@ -86,3 +86,11 @@ pub fn push(args: Vec<Object>) -> Object {
         arg => Object::Error(format!("argument to `push` must be ARRAY, got {arg:?}")),
     }
 }
+
+pub fn puts(args: Vec<Object>) -> Object {
+    for arg in args {
+        println!("{arg:?}");
+    }
+
+    Object::Null
+}
