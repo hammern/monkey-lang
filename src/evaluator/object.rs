@@ -1,3 +1,8 @@
+use std::{
+    collections::HashMap,
+    hash::{Hash, Hasher},
+};
+
 use crate::parser::ast::{Identifier, Statements};
 
 use super::enviroment::EnviromentType;
@@ -10,6 +15,7 @@ pub enum Object {
     Bool(bool),
     String(String),
     Array(Vec<Object>),
+    Hash(HashMap<Object, Object>),
     Function(Vec<Identifier>, Statements, EnviromentType),
     Null,
     ReturnValue(Box<Object>),
@@ -24,6 +30,18 @@ impl std::fmt::Display for Object {
                 write!(f, "Function({parameters:?}, {body:?})")
             }
             _ => write!(f, "{self:?}"),
+        }
+    }
+}
+
+impl Eq for Object {}
+impl Hash for Object {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            Object::String(string) => string.hash(state),
+            Object::Int(int) => int.hash(state),
+            Object::Bool(bool) => bool.hash(state),
+            _ => "".hash(state),
         }
     }
 }

@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc, usize};
+use std::{cell::RefCell, collections::HashMap, rc::Rc, usize};
 
 use crate::parser::ast::{Expression, Identifier, Infix, Literal, Prefix, Statement, Statements};
 
@@ -145,6 +145,25 @@ impl Evaluator {
                 }
 
                 Object::Array(elements)
+            }
+            Literal::Hash(hash) => {
+                let mut pairs = HashMap::new();
+
+                for (key_expression, value_expression) in hash {
+                    let key = self.eval_expression(key_expression);
+                    if let Object::Error(_) = key {
+                        return key;
+                    }
+
+                    let value = self.eval_expression(value_expression);
+                    if let Object::Error(_) = value {
+                        return value;
+                    }
+
+                    pairs.insert(key, value);
+                }
+
+                Object::Hash(pairs)
             }
         }
     }
@@ -322,6 +341,7 @@ impl Evaluator {
             (Object::Array(array), Object::Int(index)) => {
                 self.eval_array_index_expression(array, index)
             }
+            (Object::Hash(hash), index) => self.eval_hash_index_expression(hash, index),
             _ => Object::Error(format!("index operator not supported: {left:?}")),
         }
     }
@@ -334,6 +354,16 @@ impl Evaluator {
         match array.get(index as usize) {
             Some(element) => element.clone(),
             None => Object::Null,
+        }
+    }
+
+    fn eval_hash_index_expression(&self, hash: HashMap<Object, Object>, index: Object) -> Object {
+        match index {
+            Object::String(_) | Object::Int(_) | Object::Bool(_) => match hash.get(&index) {
+                Some(value) => value.clone(),
+                None => Object::Null,
+            },
+            _ => Object::Error(format!("unusable as hash key: {index:?}")),
         }
     }
 }
@@ -646,6 +676,47 @@ mod test {
     }
 
     #[test]
+    fn test_eval_hash_literal() {
+        let tests = vec![(
+            "let two = \"two\";
+            {
+                \"one\": 10 - 9,
+                two: 1 + 1,
+                \"thr\" + \"ee\": 6 / 2,
+                4: 4,
+                true: 5,
+                false: 6
+            }
+            ",
+            Object::Hash(HashMap::from([
+                (Object::String(String::from("one")), Object::Int(1)),
+                (Object::String(String::from("two")), Object::Int(2)),
+                (Object::String(String::from("three")), Object::Int(3)),
+                (Object::Int(4), Object::Int(4)),
+                (Object::Bool(true), Object::Int(5)),
+                (Object::Bool(false), Object::Int(6)),
+            ])),
+        )];
+
+        test_eval(tests);
+    }
+
+    #[test]
+    fn test_eval_hash_index_expressions() {
+        let tests = vec![
+            ("{\"foo\": 5}[\"foo\"]", Object::Int(5)),
+            ("{\"foo\": 5}[\"bar\"]", Object::Null),
+            ("let key = \"foo\";{\"foo\": 5}[key]", Object::Int(5)),
+            ("{}[\"foo\"]", Object::Null),
+            ("{5: 5}[5]", Object::Int(5)),
+            ("{true: 5}[true]", Object::Int(5)),
+            ("{false: 5}[false]", Object::Int(5)),
+        ];
+
+        test_eval(tests);
+    }
+
+    #[test]
     fn test_eval_error_handling() {
         let tests = vec![
             (
@@ -702,6 +773,10 @@ mod test {
             (
                 "1[2]",
                 Object::Error(String::from("index operator not supported: Int(1)")),
+            ),
+            (
+                "{\"name\": \"Monkey\"}[fn(x) { x }];",
+                Object::Error(String::from("unusable as hash key: Function([Identifier(\"x\")], [Expression(Identifier(Identifier(\"x\")))], RefCell { value: Enviroment { store: {}, outer: None } })")),
             ),
         ];
 
